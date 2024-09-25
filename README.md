@@ -83,10 +83,15 @@ If you’ve made a mistake with kubeadm init don’t worry, you can easily kubea
 
 # Accessing the Cluster
 
-Next, install kubectl on the computer which you’ll use to access the cluster externally. We’ll call this the management host going forward. Kubectl is available for Linux, Windows and macOS. It’s the command line utility you’ll be using to interact with your Kubernetes cluster the most.
+Next, install kubectl on the mac which you’ll use to access the cluster externally. We’ll call this the management host going forward. Kubectl is available for Linux, Windows and macOS. It’s the command line utility you’ll be using to interact with your Kubernetes cluster the most.
 
 After installing kubectl copy the contents of the configuration file generated on your control plane node (/etc/kubernetes/admin.conf) into your local configuration file, typically under ~/.kube/config (there are other options too).
 
+#### To install kubectl on mac using brew
+```bash
+brew install kubectl
+
+```
 Check your cluster nodes with:
 ```bash
 shashank@Mac ~ % kubectl get nodes
