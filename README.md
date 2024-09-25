@@ -7,9 +7,7 @@ We’ll be creating a three-node cluster with one control plane node and two nod
 
 ## Preparing the Servers
 
-For this cluster we’ll be using Ubuntu 24.04 Linux, We’ll mostly be following the official Kubernetes installation guide so if you get stuck in any of these steps, feel free to review the original documentation which is much more thorough and explains some edge cases.
-
-The default Ubuntu configuration adds some swap space for us, so our first step is to remove that, given that Kubernetes doesn’t work (well) with swap. All commands as root or sudo going forward:
+For this cluster we’ll be using Ubuntu 24.04 Linux. The default Ubuntu configuration adds some swap space for us, so our first step is to remove that, given that Kubernetes doesn’t work (well) with swap. All commands as root or sudo going forward:
 
 ```bash
 $ swapoff -a
@@ -43,7 +41,7 @@ $ systemctl restart containerd
 ```
 Finally, make sure all your nodes have a unique hostname, MAC address and product_uuid. Shouldn’t be a problem if you’ve configured each individual node, but if you’ve used some clone/snapshot feature in your hypervisor, you might need to take additional steps to fix these.
 
-For convenience, I’ve also added the three hostnames to the /etc/hosts file on each node, as well as the laptop which I will be using to work with the cluster. Mine are in a private network, so I’ve used private IPs, but if you’re provisioning your nodes with a cloud provider, you’ll probably be using public ones instead:
+For convenience, I’ve also added the three hostnames to the /etc/hosts file on each node, as well as the Macbook which I will be using to work with the cluster. Mine are in a private network, so I’ve used private IPs, but if you’re provisioning your nodes with a cloud provider, you’ll probably be using public ones instead:
 
 ```bash
 192.168.0.20 kube-master01
@@ -52,7 +50,7 @@ For convenience, I’ve also added the three hostnames to the /etc/hosts file on
 ```
 Now that the prep work is done, let’s move on to installing some Kubernetes tools.
 
-Installing kubeadm and kubelet
+# Installing kubeadm and kubelet
 A Kubernetes kubelet is a node agent that runs on each server and does a lot of the heavy lifting. The kubeadm utility allows us to create or join a Kubernetes cluster. We’ll need both these utilities on every node in our cluster.
 
 For Ubuntu (and most Debian-based distributions) you can use apt to install these:
@@ -108,7 +106,12 @@ You’ll also note that the status of each node is NotReady. That’s because we
 # Adding a Networking Plugin
 Kubernetes is unopinionated about networking too, which is why there is no networking installed by default in a vanilla Kubernetes cluster, and a dozen or so networking plugins/addons.
 
-We’ll be using one called Cilium and these installation instructions. Once you’ve installed the Cilium CLI you can use the utility to install Cilium into your Kubernetes cluster.
+We’ll be using one called Cilium. Once you’ve installed the Cilium CLI you can use the utility to install Cilium into your Kubernetes cluster.
+
+#### To install cilium-cli on mac using brew
+```bash
+brew install cilium-cli
+```
 
 The Cilium CLI will also need to know the configuration of your Kubernetes cluster from the KUBECONFIG env var to speak to your cluster. You can set this to the generated /etc/kubernetes/admin.conf when bootstrapping the cluster on the control plane, before running cilium install:
 
@@ -134,12 +137,6 @@ helm install cilium cilium/cilium --version 1.16.1 \
    --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\,source_namespace\,source_workload\,destination_ip\,destination_namespace\,destination_workload\,traffic_direction}"
 ```
 It’ll take a few minutes to setup the networking plugin. Once successful, you should see some new pods running, and an overall OK status for Cilium:
-
-
-#### To install cilium-cli on mac using brew
-```bash
-brew install cilium-cli
-```
 
 ```bash
 shashank@Mac ~ % cilium status -n cilium-system
