@@ -1,21 +1,20 @@
 # Create a Kubernetes Cluster on Macbook Air M3(16/512) with UTM
 
-Kubernetes itself is unopinionated, which is why there are so many flavors, with different networking options, different storage plugins and more. Each managed Kubernetes provider will also have something unique to its backing cloud platform. These can be provisioned in just a few clicks.
+Since Kubernetes is an unbiased platform, there are numerous variations available, featuring varying networking configurations, storage plugins, and additional features. Every managed Kubernetes provider will also have a different feature for the cloud platform that supports it. These only require a few clicks to furnish.
 
-We’ll be creating a three-node cluster with one control plane node and two nodes for our workloads. We recommend at least 3G of memory for each node, with access to 2 CPU cores.
+With one node serving as the control plane and two nodes serving our workloads, we will be building a three-node cluster. For every node, we advise having at least 3G of memory and access to 2 CPU cores.
 
+## Setting Up the Servers
 
-## Preparing the Servers
-
-For this cluster we’ll be using Ubuntu 24.04 Linux. The default Ubuntu configuration adds some swap space for us, so our first step is to remove that, given that Kubernetes doesn’t work (well) with swap. All commands as root or sudo going forward:
+We'll be utilizing Ubuntu 24.04 Linux on this cluster. Since Kubernetes doesn't operate (well) with swap, our first step is to remove the swap space that is added by default in the Ubuntu configuration. From now on, run all commands as root or sudo:
 
 ```bash
 $ swapoff -a
 $ rm /swap.img
 ```
-For this change to persist across reboots, we’ll also need to remove the swap line in /etc/fstab.
+In order for this modification to endure over reboots, we must further eliminate the swap line from /etc/fstab.
 
-Next, for networking between pods, containers and everything else in our cluster, we’ll need to enable IP forwarding. Uncomment or add the following line in your /etc/sysctl.conf file:
+IP forwarding must then be enabled in order to facilitate networking between pods, containers, and every other component of our cluster. In your /etc/sysctl.conf file, remove the following statement or add the following:
 
 ```bash
 net.ipv4.ip_forward = 1
@@ -24,14 +23,14 @@ Apply the changes to the running server with:
 ```bash
 $ sysctl -p
 ```
-We’ll also need a container runtime installed on each Kubernetes node. We’ll be using containerd in our cluster, though other options are also supported. Install containerd on each node and generate a default config:
+On every Kubernetes node, a container runtime installation is also required. In our cluster, we will be utilizing containerd, however there are other possibilities as well. Install containerd and create a default configuration on every node:
 
 ```bash
 $ apt update && apt install -y containerd
 $ mkdir /etc/containerd
 $ containerd config default > /etc/containerd/config.toml
 ```
-Some features in Kubernetes require cgroup v2 and it’s recommended to use the systemd cgroup driver. To enable that, open the /etc/containerd/config.toml file, find SystemdCgroup and set its value to true. You can do this as a one-liner with sed:
+It is advised to utilize the systemd cgroup driver and certain Kubernetes capabilities require cgroup v2. Open the /etc/containerd/config.toml file, locate SystemdCgroup, and change its value to true to enable that. With sed, you may accomplish this as a one-liner:
 ```bash
 $ sed -i -e "s/SystemdCgroup = false/SystemdCgroup = true/g" /etc/containerd/config.toml
 ```
@@ -39,19 +38,19 @@ Restart containerd after making changes:
 ```bash
 $ systemctl restart containerd
 ```
-Finally, make sure all your nodes have a unique hostname, MAC address and product_uuid. Shouldn’t be a problem if you’ve configured each individual node, but if you’ve used some clone/snapshot feature in your hypervisor, you might need to take additional steps to fix these.
+Lastly, confirm that the hostname, MAC address, and product_uuid of each node are distinct. If you have configured each individual node, there shouldn't be any issues; however, if your hypervisor has a clone/snapshot feature, you may need to take further measures to resolve them.
 
-For convenience, I’ve also added the three hostnames to the /etc/hosts file on each node, as well as the Macbook which I will be using to work with the cluster. Mine are in a private network, so I’ve used private IPs, but if you’re provisioning your nodes with a cloud provider, you’ll probably be using public ones instead:
+For convenience, I’ve also added the three hostnames to the /etc/hosts file on each node, as well as the Macbook which I will be using to work with the cluster. Mine are in a private network, so I’ve used private IPs, although you'll most likely be utilizing public ones if you're deploying your nodes using a cloud provider:
 
 ```bash
 192.168.0.20 kube-master01
 192.168.0.21 kube-worker01
 192.168.0.22 kube-worker02
 ```
-Now that the prep work is done, let’s move on to installing some Kubernetes tools.
+After completing the necessary preparations, let's install the Kubernetes tools.
 
 # Installing kubeadm and kubelet
-A Kubernetes kubelet is a node agent that runs on each server and does a lot of the heavy lifting. The kubeadm utility allows us to create or join a Kubernetes cluster. We’ll need both these utilities on every node in our cluster.
+A Kubernetes kubelet is a node agent that runs on each server and does a lot of the heavy lifting. A Kubernetes cluster can be started or joined using the kubeadm tool. On each node in our cluster, we will require both of these functions.
 
 For Ubuntu (and most Debian-based distributions) you can use apt to install these:
 ```bash
@@ -63,29 +62,27 @@ $ apt update && apt install -y kubelet kubeadm
 $ apt-mark hold kubelet kubeadm
 ```
 
-Again, these should be installed on every node in the cluster. It is recommended to hold these packages with apt-mark hold or equivalent, so you can be explicit about your cluster updates.
+Once more, each cluster node needs to have these installed. Holding certain packages with apt-mark hold or its equivalent is advised so that you can be specific about cluster updates.
 
-Next, let’s bootstrap our control plane.
+Let's bootstrap our control plane next.
 
-# Bootstrapping the Cluster
+# Establishing the Cluster from Scratch
 
-Pick one of the nodes to be your control plane node. This is where the control plane containers will reside (Kubernetes API server, etcd and others) and most other workloads will scheduled across the two remaining nodes. On the control plane node bootstrap your cluster using:
+Select a node to serve as your control plane node. The majority of other workloads will be distributed among the two remaining nodes, and this is where the control plane containers (Kubernetes API server, etcd, and others) will be housed. You can bootstrap your cluster on the control plane node by using:
 
 ```bash
 $ kubeadm init
 ```
 
-You’ll see a lot of things happening here and it might take a few minutes to complete. There are some preflight checks that kubeadm runs and may abort the installation. The error messages are usually descriptive enough to understand what needs to be fixed (if swap is detected for example).
+There are a lot of things going on here, and it may take some time to finish. Kubeadm performs some preflight checks and has the ability to terminate the installation. When swap is discovered, for example, the error messages are typically sufficiently detailed to determine what has to be addressed.
 
 If you’ve made a mistake with kubeadm init don’t worry, you can easily kubeadm reset and try again!
 
-After a successful init, you’ll be presented with a kubeadm join command for your other nodes, as well as a configuration file for kubectl to access the cluster. Use the kubeadm join command on the two other nodes in your cluster.
+# Getting inside the Cluster
 
-# Accessing the Cluster
+Next, set up kubectl on the Mac, which will be used to connect to the cluster from outside. From now on, we'll refer to this as the management host. Windows, macOS, and Linux can all run Kubectl. It's the main command line tool you'll use to communicate with your Kubernetes cluster.
 
-Next, install kubectl on the mac which you’ll use to access the cluster externally. We’ll call this the management host going forward. Kubectl is available for Linux, Windows and macOS. It’s the command line utility you’ll be using to interact with your Kubernetes cluster the most.
-
-After installing kubectl copy the contents of the configuration file generated on your control plane node (/etc/kubernetes/admin.conf) into your local configuration file, typically under ~/.kube/config (there are other options too).
+The configuration file generated on your control plane node (/etc/kubernetes/admin.conf) should be copied into your local configuration file, usually located under ~/.kube/config (but there are other alternatives as well), after installing kubectl.
 
 #### To install kubectl on mac using brew
 ```bash
@@ -101,21 +98,21 @@ worker01   Ready    worker          26h   v1.30.5
 worker02   Ready    worker          26h   v1.30.5
 shashank@Mac ~ % 
 ```
-You should see a list of the three nodes you’ve added to the cluster. If you’re using more than one network interface, use kubectl get nodes -o wide to get more details and confirm the correct IP address is displayed for each node.
+The three nodes you added to the cluster ought should be listed for you to observe. If you’re using more than one network interface, use kubectl get nodes -o wide to get further details and validate the right IP address is displayed for each node.
 
 You’ll also note that the status of each node is NotReady. That’s because we have not configured networking in our cluster. Let’s do that next.
 
 # Adding a Networking Plugin
-Kubernetes is unopinionated about networking too, which is why there is no networking installed by default in a vanilla Kubernetes cluster, and a dozen or so networking plugins/addons.
+Since Kubernetes is agnostic towards networking as well, a vanilla Kubernetes cluster comes with a dozen or so networking plugins/addons installed instead of networking installed by default.
 
-We’ll be using one called Cilium. Once you’ve installed the Cilium CLI you can use the utility to install Cilium into your Kubernetes cluster.
+One that we'll use is named Cilium. You can use the Cilium CLI tool to install Cilium within your Kubernetes cluster after installing it on your system.
 
 #### To install cilium-cli on mac using brew
 ```bash
 brew install cilium-cli
 ```
 
-The Cilium CLI will also need to know the configuration of your Kubernetes cluster from the KUBECONFIG env var to speak to your cluster. You can set this to the generated /etc/kubernetes/admin.conf when bootstrapping the cluster on the control plane, before running cilium install:
+To communicate with your Kubernetes cluster, the Cilium CLI will also require knowledge of its configuration, which can be found in the KUBECONFIG environment variable. When bootstrapping the cluster on the control plane, you can set this to the produced /etc/kubernetes/admin.conf before executing cilium install:
 
 #### To install helm on mac using brew
 ```bash
@@ -180,7 +177,7 @@ worker02   Ready    worker          26h   v1.30.5   192.168.0.22   <none>       
 shashank@Mac ~ % 
 ```
 
-If everything is going according to plan, the node statuses should now display Ready. The IP addresses should be correct, and you should see a bunch of pods running in the cilium-system namespace as well, with correct IP addresses too:
+The node statuses ought to now show Ready if everything is proceeding as planned. In addition to seeing several pods operating in the cilium-system namespace with proper IP addresses, the IP addresses should be correct:
 
 ```bash
 shashank@Mac ~ % kubectl get pods -n cilium-system
@@ -200,32 +197,32 @@ shashank@Mac ~ %
 
 ## Cilium L2 announcements setup
 
-Cilium (and load balancers in general, it seems) have two modes for announcing IPs of services. The more complex one is the BGP mode. In this mode, Cilium would announce routes to the exposed services. This needs an environment where BGP is configured. I decided to skip this approach, as my network knowledge in general isn’t that great. I’ve only got a relatively hazy idea what the BGP protocol even does.
+There are two ways that Cilium (and load balancers in general, it appears) announces service IPs. The BGP mode is the more intricate one. In this mode, Cilium would declare routes to the exposed services. An environment with configured BGP is required for this. Since I don't know a lot about networks in general, I choose not to use this strategy. I just have a vague understanding of what the BGP protocol is used for.
 
-So I settled on the simpler approach, L2 Announcements. In this approach, all Cilium nodes in the cluster take part in a leader election for each of the services which should be exposed and receive a virtual IP. The node which wins the election then answers any ARP requests asking for the MAC address of the node with the service virtual IP. The node then regularly renews a lease in Kubernetes to signal to all other nodes in the cluster that it’s still there. If a lease isn’t renewed in a certain time frame, another node takes over the ARP announcements.
+I therefore chose the easier strategy of L2 Announcements. With this method, every Cilium node in the cluster participates in an election to choose a leader for every service that needs to be made public and given a virtual IP address. After winning the election, the node with the service virtual IP responds to any ARP queries requesting the node's MAC address. The node then periodically renews a lease in Kubernetes to indicate to all other nodes in the cluster that it’s still there. Another node assumes control of the ARP announcements if a lease isn't extended within a predetermined window of time.
 
-One consequence of this approach is the fact that this is not true load balancing. All traffic for a given service will always arrive at one specific node. From the documentation, this is different when using the BGP approach, as that approach does provide true load balancing. But what the L2 announcements approach does provide is fail over, and this is all that I really care about for my setup, at least for now.
+This strategy has several consequences, one of which is that it is not genuine load balancing. One particular node will always receive all traffic for a given service. According to the documentation, this isn't the case when employing the BGP technique, which offers real load balancing. All I really care about for my system, at least for the time being, is fail over, which is something that the L2 announcements strategy does give.
 
 #### Load balancer IP pools
 
 ```bash
 $ kubectl create -f ciliumLoadBalancerIPPool.yaml
 ```
-It defines a relatively small IP range, as I don’t expect to expose too many services.
+I don't anticipate exposing too many services, thus it defines a small IP range.
 
 #### L2 announcement policies
-The second piece of config is the configuration for which services should get an IP and which nodes should do the L2 announcements. This is done via a CiliumL2AnnouncementPolicy manifest.
+The configuration for which nodes should make the L2 announcements and which services should receive IP addresses makes up the second piece of setup. A CiliumL2AnnouncementPolicy manifest is used to do this.
 
 ```bash
 $ kubectl create -f CiliumL2AnnouncementPolicy.yaml
 ```
-This restricts the announcements to only happen from my worker nodes, not from the control plane or other available nodes.
-In addition, I’m adding a serviceSelector here, so that only certain services get an IP and are announced.
+This limits the notifications to come from my worker nodes alone—not from the control plane or any other nodes that might be available.
+To ensure that only specific services receive an IP address and are publicized, I'm also implementing a serviceSelector here.
 
 
 ## Example
 
-With all of that config done, let’s have a look at an example. I used the existing grafana/prometheus service's and changed from ClusterIP to Loadblancer.
+Now that everything has been configured, let's look at an example. I switched from ClusterIP to Loadblancer using the grafana/prometheus services that were already in place.
 
 ```bash
 $ kubectl apply -f grafana-svc.yaml
@@ -240,7 +237,7 @@ prometheus   LoadBalancer   10.110.208.59   192.168.0.201   9090:32024/TCP   24h
 shashank@Mac Grafana-SVC % 
 shashank@Mac Grafana-SVC %
 ```
-The important part here is the EXTERNAL_IP. Next, check whether there is a Kubernetes lease created by anyone , signaling that the node is announcing the service:
+Here, the EXTERNAL_IP is the crucial component. Next, see if someone has created a Kubernetes lease, which indicates that the node is announcing the service:
 
 ```bash
 shashank@Mac Grafana-SVC % kubectl get -n cilium-system leases.coordination.k8s.io
