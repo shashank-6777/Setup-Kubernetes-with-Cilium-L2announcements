@@ -79,6 +79,8 @@ You’ll see a lot of things happening here and it might take a few minutes to c
 
 If you’ve made a mistake with kubeadm init don’t worry, you can easily kubeadm reset and try again!
 
+After a successful init, you’ll be presented with a kubeadm join command for your other nodes, as well as a configuration file for kubectl to access the cluster. Use the kubeadm join command on the two other nodes in your cluster.
+
 # Accessing the Cluster
 
 Next, install kubectl on the mac which you’ll use to access the cluster externally. We’ll call this the management host going forward. Kubectl is available for Linux, Windows and macOS. It’s the command line utility you’ll be using to interact with your Kubernetes cluster the most.
