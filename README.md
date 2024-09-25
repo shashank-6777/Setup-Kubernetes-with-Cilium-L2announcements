@@ -265,4 +265,4 @@ shashank@Mac Grafana-SVC %
 
 ## Authors
 
-- [@shashank-linkedin](https://linkedin.com/in/shashank-sharma-137002124)
+[@shashank-linkedin](https://linkedin.com/in/shashank-sharma-137002124)
